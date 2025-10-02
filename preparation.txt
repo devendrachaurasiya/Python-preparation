@@ -1,0 +1,3131 @@
+Category	Modules
+System & OS	os, sys, shutil, pathlib, platform, getpass
+Math & Numbers	math, decimal, fractions, random, statistics
+Data & Time	datetime, time, calendar
+Data Structures	collections, array, heapq
+File I/O	io, csv, json, pickle, zipfile
+Networking	socket, http.client, urllib
+Threading & Concurrency	threading, multiprocessing, asyncio
+Debugging & Logging	logging, traceback, pdb
+Utilities	itertools, functools, re (regex), uuid, enum
+
+
+
+
+
+Great one 👍 — **GIL (Global Interpreter Lock)** is a *very popular Python interview question*, especially for multithreading. Let’s break it down carefully:
+
+---
+
+# 🔹 What is the GIL?
+
+* The **Global Interpreter Lock (GIL)** is a **mutex (lock)** used in the CPython interpreter.
+* It ensures that **only one thread executes Python bytecode at a time**, even on multi-core CPUs.
+* This makes memory management (reference counting, garbage collection) **safe and simple** in CPython.
+
+---
+
+# 🔹 Why Does Python Have a GIL?
+
+* Python uses **reference counting** for memory management.
+* Without a lock, multiple threads could simultaneously update reference counts → leading to race conditions and memory corruption.
+* GIL solves this by **serializing access** to Python objects.
+
+---
+
+# 🔹 How GIL Affects Multithreading
+
+1. **CPU-bound tasks (bad for GIL)**
+
+   * If threads are doing heavy computation (math, loops, encryption, etc.), GIL prevents them from running in true parallel.
+   * Example:
+
+     ```python
+     import threading
+
+     def cpu_task():
+         x = 0
+         for _ in range(10**7):
+             x += 1
+
+     threads = [threading.Thread(target=cpu_task) for _ in range(4)]
+     for t in threads: t.start()
+     for t in threads: t.join()
+     ```
+
+     ✅ All threads run **one after another** (no speedup on multi-core CPU).
+
+2. **I/O-bound tasks (good with GIL)**
+
+   * If threads spend time waiting (disk, network, DB), GIL is released during I/O operations.
+   * Example: web scraping, API calls.
+   * Here, multithreading **does improve performance**.
+
+---
+
+# 🔹 GIL vs Multiprocessing
+
+* `threading` → affected by GIL (not useful for CPU-bound).
+* `multiprocessing` → spawns **separate processes**, each with its own Python interpreter + GIL.
+  ✅ True parallel execution on multiple cores.
+
+Example:
+
+```python
+from multiprocessing import Process
+
+def cpu_task():
+    x = 0
+    for _ in range(10**7):
+        x += 1
+
+procs = [Process(target=cpu_task) for _ in range(4)]
+for p in procs: p.start()
+for p in procs: p.join()
+```
+
+This will run in parallel and speed up on multi-core CPUs.
+
+---
+
+# 🔹 GIL Alternatives
+
+* Other interpreters don’t have a GIL:
+
+  * **Jython** (Python on JVM) → no GIL.
+  * **IronPython** (Python on .NET) → no GIL.
+  * **PyPy** (JIT compiler) → still has GIL, but faster execution.
+
+---
+
+# 🔹 Important Interview Q&A
+
+**Q1: What is GIL?**
+👉 A lock in CPython ensuring only one thread executes Python bytecode at a time.
+
+**Q2: Why does Python need GIL?**
+👉 To protect memory management (reference counting) from race conditions.
+
+**Q3: When does GIL hurt performance?**
+👉 CPU-bound multithreaded programs (math, ML, image processing).
+
+**Q4: When does GIL not matter?**
+👉 I/O-bound programs (web servers, networking, file I/O).
+
+**Q5: How to bypass GIL?**
+👉 Use `multiprocessing`, C extensions (`numpy`, `numba`, `cython`), or other interpreters.
+
+---
+
+✅ **Summary**:
+
+* GIL = lock that allows only 1 thread to run at a time in CPython.
+* Good for I/O-bound tasks, bad for CPU-bound tasks.
+* Use **multiprocessing** for CPU-bound work.
+
+---
+
+👉 Do you want me to also create a **diagram (thread timeline showing how GIL blocks CPU-bound threads but releases during I/O)**? That makes it super clear in interviews.
+
+
+
+A **race condition** happens when two or more threads or processes try to access and modify a shared resource (like a variable, file, or database record) at the same time, and the program’s outcome depends on the timing of their execution.
+
+👉 In simple words:
+It’s like two people writing on the same whiteboard at the same time—if you don’t coordinate, the result will be unpredictable or wrong.
+
+---
+
+### Example in Python
+
+```python
+import threading
+
+counter = 0
+
+def increment():
+    global counter
+    for _ in range(100000):
+        counter += 1
+
+t1 = threading.Thread(target=increment)
+t2 = threading.Thread(target=increment)
+
+t1.start()
+t2.start()
+t1.join()
+t2.join()
+
+print("Final counter:", counter)
+```
+
+🔹 You might expect `counter = 200000`, but often you’ll get a smaller number because both threads **race** to update `counter`.
+This happens because `counter += 1` is **not atomic** — it’s really:
+
+1. Read value
+2. Add 1
+3. Write back
+
+If two threads interleave at step 1 or 2, updates can be lost.
+
+---
+
+### Where race conditions occur:
+
+* **Multithreading** (shared memory, global variables)
+* **Multiprocessing** (shared files, databases)
+* **Distributed systems** (multiple servers writing to the same data)
+* **Async programming** (concurrent tasks accessing shared state)
+
+---
+
+### How to prevent race conditions:
+
+1. **Locks / Mutex**
+   Ensure only one thread modifies a resource at a time.
+
+   ```python
+   lock = threading.Lock()
+   def increment():
+       global counter
+       for _ in range(100000):
+           with lock:  # only one thread at a time
+               counter += 1
+   ```
+
+2. **Atomic operations**
+   Use thread-safe data structures or atomic variables (like `queue.Queue`, `multiprocessing.Value`, `concurrent.futures`).
+
+3. **Avoid shared state**
+   Design systems with immutability, message passing, or partitioned data.
+
+4. **Database transactions**
+   Use proper isolation levels to avoid race conditions when multiple clients update data.
+
+---
+
+⚡ In interviews, when asked:
+
+* Define it simply: *“A race condition occurs when multiple threads/processes access shared data concurrently and the final result depends on the timing of execution.”*
+* Always mention **locks, synchronization, or immutability** as solutions.
+
+Would you like me to also show you a **real-world example**, like a banking system where two people withdraw from the same account at the same time?
+
+
+
+
+A race condition happens when two or more threads or processes try to access and modify a shared resource (like a variable, file, or database record) at the same time, and the program’s outcome depends on the timing of their execution.
+
+👉 In simple words:
+It’s like two people writing on the same whiteboard at the same time—if you don’t coordinate, the result will be unpredictable or wrong.
+
+
+
+
+
+Great one 👍 — **GIL (Global Interpreter Lock)** is a *very popular Python interview question*, especially for multithreading. Let’s break it down carefully:
+
+---
+
+# 🔹 What is the GIL?
+
+* The **Global Interpreter Lock (GIL)** is a **mutex (lock)** used in the CPython interpreter.
+* It ensures that **only one thread executes Python bytecode at a time**, even on multi-core CPUs.
+* This makes memory management (reference counting, garbage collection) **safe and simple** in CPython.
+
+---
+
+# 🔹 Why Does Python Have a GIL?
+
+* Python uses **reference counting** for memory management.
+* Without a lock, multiple threads could simultaneously update reference counts → leading to race conditions and memory corruption.
+* GIL solves this by **serializing access** to Python objects.
+
+---
+
+# 🔹 How GIL Affects Multithreading
+
+1. **CPU-bound tasks (bad for GIL)**
+
+   * If threads are doing heavy computation (math, loops, encryption, etc.), GIL prevents them from running in true parallel.
+   * Example:
+
+     ```python
+     import threading
+
+     def cpu_task():
+         x = 0
+         for _ in range(10**7):
+             x += 1
+
+     threads = [threading.Thread(target=cpu_task) for _ in range(4)]
+     for t in threads: t.start()
+     for t in threads: t.join()
+     ```
+
+     ✅ All threads run **one after another** (no speedup on multi-core CPU).
+
+2. **I/O-bound tasks (good with GIL)**
+
+   * If threads spend time waiting (disk, network, DB), GIL is released during I/O operations.
+   * Example: web scraping, API calls.
+   * Here, multithreading **does improve performance**.
+
+---
+
+# 🔹 GIL vs Multiprocessing
+
+* `threading` → affected by GIL (not useful for CPU-bound).
+* `multiprocessing` → spawns **separate processes**, each with its own Python interpreter + GIL.
+  ✅ True parallel execution on multiple cores.
+
+Example:
+
+```python
+from multiprocessing import Process
+
+def cpu_task():
+    x = 0
+    for _ in range(10**7):
+        x += 1
+
+procs = [Process(target=cpu_task) for _ in range(4)]
+for p in procs: p.start()
+for p in procs: p.join()
+```
+
+This will run in parallel and speed up on multi-core CPUs.
+
+---
+
+# 🔹 GIL Alternatives
+
+* Other interpreters don’t have a GIL:
+
+  * **Jython** (Python on JVM) → no GIL.
+  * **IronPython** (Python on .NET) → no GIL.
+  * **PyPy** (JIT compiler) → still has GIL, but faster execution.
+
+---
+
+# 🔹 Important Interview Q&A
+
+**Q1: What is GIL?**
+👉 A lock in CPython ensuring only one thread executes Python bytecode at a time.
+
+**Q2: Why does Python need GIL?**
+👉 To protect memory management (reference counting) from race conditions.
+
+**Q3: When does GIL hurt performance?**
+👉 CPU-bound multithreaded programs (math, ML, image processing).
+
+**Q4: When does GIL not matter?**
+👉 I/O-bound programs (web servers, networking, file I/O).
+
+**Q5: How to bypass GIL?**
+👉 Use `multiprocessing`, C extensions (`numpy`, `numba`, `cython`), or other interpreters.
+
+---
+
+✅ **Summary**:
+
+* GIL = lock that allows only 1 thread to run at a time in CPython.
+* Good for I/O-bound tasks, bad for CPU-bound tasks.
+* Use **multiprocessing** for CPU-bound work.
+
+---
+
+👉 Do you want me to also create a **diagram (thread timeline showing how GIL blocks CPU-bound threads but releases during I/O)**? That makes it super clear in interviews.
+
+
+
+why shallow copy doest work in single or flat list
+Why? Because copy.copy() only makes a new outer list, but the inner lists are still shared references.
+
+
+Yes ✅ you can **practically test memory allocation & release in Python** using a few tricks.
+Let me show you how 👇
+
+---
+
+# 🔹 Step 1: Check Object Reference Count
+
+```python
+import sys
+
+x = [1, 2, 3]
+print("Ref count:", sys.getrefcount(x))  # +1 due to argument
+y = x
+print("Ref count after new reference:", sys.getrefcount(x))
+del y
+print("Ref count after del:", sys.getrefcount(x))
+```
+
+👉 When reference count → 0, Python frees the object’s memory automatically.
+
+---
+
+# 🔹 Step 2: Forcing Garbage Collection
+
+```python
+import gc
+
+class MyClass:
+    def __del__(self):
+        print("Object destroyed")
+
+obj = MyClass()
+del obj      # Removes reference
+gc.collect() # Forces garbage collection
+```
+
+✅ Output:
+
+```
+Object destroyed
+```
+
+---
+
+# 🔹 Step 3: Memory Leak Demo (Circular Reference)
+
+```python
+import gc
+
+class Node:
+    def __init__(self):
+        self.ref = None
+    def __del__(self):
+        print("Node destroyed")
+
+a = Node()
+b = Node()
+a.ref = b
+b.ref = a
+
+del a
+del b
+
+print("Running GC...")
+gc.collect()
+```
+
+👉 If you don’t call `gc.collect()`, the circular reference may stay alive. With GC, they get cleaned.
+
+---
+
+# 🔹 Step 4: Monitoring Memory Usage
+
+```python
+import tracemalloc
+
+tracemalloc.start()
+
+lst = [i for i in range(10**6)]  # Allocate memory
+print("Memory after allocation:", tracemalloc.get_traced_memory())
+
+del lst
+gc.collect()
+print("Memory after deletion:", tracemalloc.get_traced_memory())
+```
+
+✅ You’ll see memory drop after `del` + `gc.collect()`.
+(Note: Sometimes Python’s allocator **keeps memory for reuse** instead of giving it back to the OS.)
+
+---
+
+# 🔹 Step 5: Weak References (No Memory Leak)
+
+```python
+import weakref
+
+class MyClass:
+    pass
+
+obj = MyClass()
+r = weakref.ref(obj)   # Does not increase ref count
+print("Weak reference:", r)
+
+del obj
+print("After deleting obj:", r())  # None (auto released)
+```
+
+---
+
+⚡ So yes — you can **practically release memory** in Python by:
+
+1. Using `del` to drop references.
+2. Calling `gc.collect()` to force cleanup.
+3. Using `weakref` to avoid leaks in cyclic references.
+4. Monitoring with `tracemalloc` or `memory_profiler`.
+
+---
+
+👉 Do you want me to write a **small script** that shows memory allocation → deletion → GC → memory freed, so you can just run it and watch the difference?
+
+
+
+
+
+import sys
+
+x = [1, 2, 3]
+print("Ref count:", sys.getrefcount(x))  # +1 due to argument
+y = x
+print("Ref count after new reference:", sys.getrefcount(x))
+del y
+print("Ref count after del:", sys.getrefcount(x))
+
+Great question 👍 Let’s go deep into **`@property` in Python** (a commonly asked interview topic).
+
+---
+
+# 🔹 What is `@property` in Python?
+
+`@property` is a **built-in decorator** used in classes to make a **method behave like an attribute**.
+It is part of Python’s **Descriptor Protocol** and is often used for **encapsulation** (controlling how attributes are accessed, updated, or deleted).
+
+---
+
+## 🔹 Basic Example
+
+```python
+class Student:
+    def __init__(self, name, marks):
+        self._name = name
+        self._marks = marks
+    
+    @property
+    def marks(self):       # Getter
+        return self._marks
+
+s = Student("Devendra", 90)
+print(s.marks)   # Notice: no parentheses, looks like an attribute
+```
+
+✅ Output:
+
+```
+90
+```
+
+Even though `marks` is a method, we can access it like an attribute.
+
+---
+
+## 🔹 Using Setter with `@marks.setter`
+
+```python
+class Student:
+    def __init__(self, marks):
+        self._marks = marks
+
+    @property
+    def marks(self):   # Getter
+        return self._marks
+
+    @marks.setter
+    def marks(self, value):   # Setter
+        if value < 0:
+            raise ValueError("Marks cannot be negative")
+        self._marks = value
+
+s = Student(80)
+print(s.marks)   # 80
+s.marks = 95     # calls setter
+print(s.marks)   # 95
+```
+
+---
+
+## 🔹 Using Deleter with `@marks.deleter`
+
+```python
+class Student:
+    def __init__(self, marks):
+        self._marks = marks
+
+    @property
+    def marks(self):
+        return self._marks
+
+    @marks.deleter
+    def marks(self):
+        print("Deleting marks...")
+        del self._marks
+
+s = Student(70)
+del s.marks
+```
+
+---
+
+## 🔹 Why Use `@property`?
+
+1. **Encapsulation**: Hide internal variables (`_marks`) and control access.
+2. **Validation**: Add conditions (e.g., marks can’t be negative).
+3. **Read-only Attributes**: If you don’t define a setter, the property becomes read-only.
+
+   ```python
+   class Circle:
+       def __init__(self, radius):
+           self._radius = radius
+
+       @property
+       def area(self):
+           return 3.14 * self._radius ** 2
+
+   c = Circle(5)
+   print(c.area)   # 78.5
+   # c.area = 100  ❌ Error (read-only)
+   ```
+
+---
+
+## 🔹 Difference Between `@property` vs Normal Getter/Setter
+
+**Without property (Java-style):**
+
+```python
+class Student:
+    def __init__(self, marks):
+        self._marks = marks
+    
+    def get_marks(self):
+        return self._marks
+    
+    def set_marks(self, value):
+        self._marks = value
+```
+
+Usage:
+
+```python
+s = Student(80)
+s.set_marks(90)
+print(s.get_marks())
+```
+
+**With property (Pythonic):**
+
+```python
+class Student:
+    def __init__(self, marks):
+        self._marks = marks
+    
+    @property
+    def marks(self):
+        return self._marks
+    
+    @marks.setter
+    def marks(self, value):
+        self._marks = value
+```
+
+Usage:
+
+```python
+s = Student(80)
+s.marks = 90
+print(s.marks)
+```
+
+✅ Cleaner, more **Pythonic**, no need for `get_` or `set_`.
+
+---
+
+## 🔹 Quick Summary
+
+* `@property` → getter (read value like an attribute).
+* `@<name>.setter` → setter (update value with validation).
+* `@<name>.deleter` → deleter (delete the attribute).
+* Used for **encapsulation, validation, computed attributes, and read-only attributes**.
+
+---
+
+👉 Do you want me to also prepare some **interview-style Q&A specifically on `@property`** (tricky cases and best practices)?
+
+
+
+# with @
+"""
+def decorator(func):
+    def wrapper():
+        print("before decorator!")
+        func()
+        print("after decorator!")
+    return wrapper
+@decorator
+def my_deco():
+    print("decorator is called")
+my_deco()
+
+""";
+
+
+# without @ 
+"""
+# decorator_called = decorator(my_deco)
+# decorator_called()""";
+
+#Decorators with Arguments
+"""
+
+"""
+def repeat(num):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            for _ in range(num):
+                func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+@repeat(3)
+def greet(name):
+    print(f" hello {name}")
+    
+greet("Devendra")
+    
+
+"""Preserving Function Metadata (functools.wraps)
+
+If you don’t use wraps, the original function name and docstring are lost.
+
+from functools import wraps
+
+def my_decorator(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        print("Before function")
+        return func(*args, **kwargs)
+    return wrapper
+
+@my_decorator
+def add(a, b):
+    """Adds two numbers"""
+    return a + b
+
+print(add.__name__)   # add
+print(add.__doc__)    # Adds two numbers"""
+
+
+"""
+def logger(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"Calling {func.__name__} with {args} {kwargs}")
+        return func(*args, **kwargs)
+    return wrapper
+
+@logger
+def multiply(a, b):
+    return a * b
+
+multiply(5, 7)
+"""
+"""
+Authentication (Flask/Django style)
+
+def require_login(func):
+    def wrapper(user, *args, **kwargs):
+        if not user.get("logged_in"):
+            print("Access denied!")
+            return
+        return func(user, *args, **kwargs)
+    return wrapper
+
+@require_login
+def dashboard(user):
+    print("Welcome to your dashboard!")
+
+user = {"name": "Devendra", "logged_in": True}
+dashboard(user)
+
+
+Built-in decorators:
+
+@staticmethod
+
+@classmethod
+
+@property
+
+Can you stack multiple decorators?
+
+Yes. They apply from bottom to top.
+
+@d1
+@d2
+def func(): 
+
+func = d1(d2(func))
+
+
+. Can you decorate a class itself?
+
+Yes → Class decorators modify or enhance a class.
+
+def add_attr(cls):
+    cls.new_attr = "Hello"
+    return cls
+
+@add_attr
+class MyClass:
+    pass
+
+print(MyClass.new_attr)
+
+12. What are built-in decorators in Python?
+
+@staticmethod
+
+@classmethod
+
+@property
+
+@functools.lru_cache
+
+@functools.wraps
+
+
+Can you pass arguments to a decorator itself?
+
+Yes, that’s a decorator factory:
+
+def debug(prefix):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            print(f"{prefix}: {func.__name__}")
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+@debug("TRACE")
+def add(a, b):
+    return a + b
+
+add(2,2)
+
+
+@property is a built-in decorator used in classes to make a method behave like an attribute.
+It is part of Python’s Descriptor Protocol and is often used for encapsulation (controlling how attributes are accessed, updated, or deleted).
+
+🔹 Basic Example
+class Student:
+    def __init__(self, name, marks):
+        self._name = name
+        self._marks = marks
+    
+    @property
+    def marks(self):       # Getter
+        return self._marks
+
+s = Student("Devendra", 90)
+print(s.marks)   # Notice: no parentheses, looks like an attribute
+
+
+Difference Between @property vs Normal Getter/Setter
+
+Without property (Java-style):
+
+class Student:
+    def __init__(self, marks):
+        self._marks = marks
+    
+    def get_marks(self):
+        return self._marks
+    
+    def set_marks(self, value):
+        self._marks = value
+
+
+Usage:
+
+s = Student(80)
+s.set_marks(90)
+print(s.get_marks())
+
+
+With property (Pythonic):
+
+class Student:
+    def __init__(self, marks):
+        self._marks = marks
+    
+    @property
+    def marks(self):
+        return self._marks
+    
+    @marks.setter
+    def marks(self, value):
+        self._marks = value
+
+
+Usage:
+
+s = Student(80)
+s.marks = 90
+print(s.marks)
+
+
+✅ Cleaner, more Pythonic, no need for get_ or set_.
+"""
+# getter and setter method
+
+
+Perfect 👍
+You want a **comprehensive list of the Top 100 Python Interview Questions with Answers**.
+I’ll break them into sections so it’s easier to revise:
+
+---
+
+# 🐍 Top 100 Python Interview Questions (with Answers)
+
+---
+
+## **A. Core Python Basics**
+
+**1. What is Python?**
+
+* High-level, interpreted, dynamically typed programming language.
+
+**2. Who created Python?**
+
+* Guido van Rossum in 1991.
+
+**3. Why is Python popular?**
+
+* Simple syntax, huge libraries, cross-platform, supports OOP + functional.
+
+**4. Is Python compiled or interpreted?**
+
+* Interpreted (executed line by line).
+
+**5. Difference between Python and Java?**
+
+* Python is dynamically typed, Java is statically typed.
+* Python is interpreted, Java is compiled to bytecode and runs on JVM.
+
+**6. What are Python’s data types?**
+
+* Numeric, Sequence (list, tuple, range, string), Set, Dictionary, Boolean, None.
+
+**7. Explain Python’s type casting.**
+
+* `int("10")`, `float("10.5")`, `str(123)`.
+
+**8. What is dynamic typing?**
+
+* Variable type determined at runtime.
+
+**9. Explain Python’s indentation.**
+
+* Used instead of `{}` for blocks.
+
+**10. What are Python’s keywords?**
+
+* Reserved words (`def`, `class`, `try`, `lambda`, etc.) → `keyword.kwlist`.
+
+---
+
+## **B. Data Structures**
+
+**11. Difference between list, tuple, set, dict?**
+
+* List: Ordered, mutable.
+* Tuple: Ordered, immutable.
+* Set: Unordered, unique elements.
+* Dict: Key-value pairs.
+
+**12. How to remove duplicates from a list?**
+
+```python
+lst = [1,2,2,3]
+unique = list(set(lst))
+```
+
+**13. Difference between shallow and deep copy?**
+
+* Shallow: Copies reference of inner objects.
+* Deep: Creates full independent copy.
+
+**14. How to merge two dictionaries?**
+
+```python
+d1 = {"a":1}
+d2 = {"b":2}
+merged = {**d1, **d2}
+```
+
+**15. How to sort a dictionary by value?**
+
+```python
+d = {"a":3,"b":1,"c":2}
+sorted_d = dict(sorted(d.items(), key=lambda x:x[1]))
+```
+
+---
+
+## **C. Strings**
+
+**16. Reverse a string in Python.**
+
+```python
+s = "hello"
+print(s[::-1])
+```
+
+**17. Check if a string is palindrome.**
+
+```python
+s == s[::-1]
+```
+
+**18. Difference between `isalpha()`, `isdigit()`, `isalnum()`?**
+
+* `isalpha()` → only letters
+* `isdigit()` → only digits
+* `isalnum()` → letters + digits
+
+**19. String formatting methods?**
+
+* f-string, `str.format()`, `%`.
+
+**20. Find frequency of characters in a string.**
+
+```python
+from collections import Counter
+print(Counter("hello"))
+```
+
+---
+
+## **D. Functions**
+
+**21. What are Python functions?**
+
+* Blocks of reusable code defined with `def`.
+
+**22. What is `*args` and `**kwargs`?**
+
+* `*args`: variable-length positional args.
+* `**kwargs`: variable-length keyword args.
+
+**23. Difference between return and yield?**
+
+* `return`: Exits function and returns value.
+* `yield`: Returns generator, function state preserved.
+
+**24. What are lambda functions?**
+
+* Anonymous one-liner functions.
+
+```python
+f = lambda x: x*x
+```
+
+**25. Explain map, filter, reduce.**
+
+* `map(func, iterable)` → applies function.
+* `filter(func, iterable)` → filters elements.
+* `reduce(func, iterable)` → reduces to single value.
+
+---
+
+## **E. OOP in Python**
+
+**26. Difference between class and object?**
+
+* Class = blueprint, Object = instance.
+
+**27. Explain inheritance in Python.**
+
+* Child class inherits parent properties.
+
+**28. What is multiple inheritance?**
+
+* Class inherits from multiple parents.
+
+**29. What is polymorphism?**
+
+* Same method name, different behavior.
+
+**30. Difference between `@staticmethod`, `@classmethod`, instance method?**
+
+* Static: No self/cls.
+* Class: Takes cls.
+* Instance: Takes self.
+
+**31. What is encapsulation?**
+
+* Restricting access using `_` or `__`.
+
+**32. What is abstraction?**
+
+* Hiding implementation details.
+
+**33. What are magic methods?**
+
+* Dunder methods like `__init__`, `__str__`, `__len__`.
+
+**34. Difference between `__new__` and `__init__`?**
+
+* `__new__`: Creates object.
+* `__init__`: Initializes object.
+
+**35. What is metaclass?**
+
+* Class of a class, controls class creation.
+
+---
+
+## **F. Advanced Python**
+
+**36. What is GIL?**
+
+* Global Interpreter Lock → allows one thread at a time in CPython.
+
+**37. Difference between multithreading and multiprocessing?**
+
+* Threading: Lightweight, shares memory.
+* Multiprocessing: Separate processes, true parallelism.
+
+**38. Explain Python’s garbage collection.**
+
+* Reference counting + cyclic GC.
+
+**39. What is monkey patching?**
+
+* Modifying code at runtime.
+
+**40. Difference between deep copy and assignment?**
+
+* Assignment: Copies reference.
+* Deep copy: Creates new copy.
+
+---
+
+## **G. File Handling**
+
+**41. How to read/write a file?**
+
+```python
+with open("file.txt","r") as f:
+    print(f.read())
+```
+
+**42. File modes in Python?**
+
+* `r`, `w`, `a`, `rb`, `wb`.
+
+**43. How to check if a file exists?**
+
+```python
+import os
+os.path.exists("file.txt")
+```
+
+**44. How to delete a file?**
+
+```python
+os.remove("file.txt")
+```
+
+**45. Difference between `with open()` and normal open?**
+
+* `with` automatically closes file.
+
+---
+
+## **H. Modules & Packages**
+
+**46. What is a Python module?**
+
+* A `.py` file containing code.
+
+**47. What is a package?**
+
+* Directory with `__init__.py`.
+
+**48. How to install external packages?**
+
+* `pip install package_name`
+
+**49. Explain `__init__.py`.**
+
+* Makes a directory a package.
+
+**50. How to import module partially?**
+
+```python
+from math import sqrt
+```
+
+---
+
+## **I. Exception Handling**
+
+**51. Explain try-except-finally.**
+
+* try: code, except: handle error, finally: always executes.
+
+**52. Difference between Exception and Error?**
+
+* Error: Issues in code.
+* Exception: Run-time problems.
+
+**53. How to raise an exception?**
+
+```python
+raise ValueError("Invalid")
+```
+
+**54. Difference between custom exception and built-in exception?**
+
+* Custom → user-defined by subclassing Exception.
+
+**55. Multiple except blocks?**
+
+* Yes, can handle multiple exception types separately.
+
+---
+
+## **J. Important Python Concepts**
+
+**56. What is Python’s namespace?**
+
+* Mapping of names → objects (local, global, built-in).
+
+**57. Explain LEGB rule.**
+
+* Local → Enclosing → Global → Built-in scope lookup.
+
+**58. What are Python closures?**
+
+* Function remembers enclosing scope variables.
+
+**59. What is a generator?**
+
+* Function with `yield`, returns iterable object.
+
+**60. Difference between iterator and iterable?**
+
+* Iterable: Can be looped (list, str).
+* Iterator: Object with `__iter__()` & `__next__()`.
+
+---
+
+## **K. Libraries & Tools**
+
+**61. Common Python libraries?**
+
+* NumPy, Pandas, Matplotlib, Flask, Django, Requests.
+
+**62. What is Pandas used for?**
+
+* Data analysis and manipulation.
+
+**63. Difference between NumPy array and list?**
+
+* NumPy: Faster, supports vectorized ops.
+* List: General-purpose.
+
+**64. What is virtual environment?**
+
+* Isolated env for dependencies.
+
+**65. Difference between pip and conda?**
+
+* pip → installs Python packages.
+* conda → installs Python + non-Python dependencies.
+
+---
+
+## **L. Coding/Problem-Solving**
+
+**66. Fibonacci sequence in Python.**
+
+```python
+def fib(n):
+    a,b = 0,1
+    for _ in range(n):
+        print(a, end=" ")
+        a,b = b,a+b
+```
+
+**67. Factorial using recursion.**
+
+```python
+def fact(n):
+    return 1 if n==0 else n*fact(n-1)
+```
+
+**68. Check prime number.**
+
+```python
+def is_prime(n):
+    return all(n%i for i in range(2,int(n**0.5)+1)) and n>1
+```
+
+**69. Reverse a list without using reverse().**
+
+```python
+lst[::-1]
+```
+
+**70. Find second largest element in a list.**
+
+```python
+sorted(set(lst))[-2]
+```
+
+---
+
+## **M. SQL + Python**
+
+**71. How to connect Python with SQL?**
+
+* Using `sqlite3` or `mysql-connector`.
+
+**72. Query execution in Python?**
+
+```python
+import sqlite3
+con = sqlite3.connect("db.db")
+cur = con.cursor()
+cur.execute("SELECT * FROM emp")
+```
+
+**73. How to fetch one record vs all?**
+
+* `fetchone()` vs `fetchall()`.
+
+**74. How to insert data safely in SQL?**
+
+* Use parameterized queries.
+
+**75. ORM in Python?**
+
+* Object Relational Mapper, e.g., SQLAlchemy, Django ORM.
+
+---
+
+## **N. Interview-Specific Concepts**
+
+**76. Difference between list comprehension and generator expression?**
+
+* List comprehension → creates list.
+* Generator expression → lazy eval.
+
+**77. Explain duck typing.**
+
+* Type determined by behavior, not class.
+
+**78. Difference between `@property` and normal method?**
+
+* allows access like attribute.
+
+**79. What is pickling in Python?**
+
+* Serialization using `pickle`.
+
+**80. Difference between `deepcopy`, `copy`, assignment?**
+
+* Assignment: Same reference.
+* Copy: New object, same inner.
+* Deepcopy: Full independent copy.
+
+---
+
+## **O. OS & System**
+
+**81. How to get current working directory?**
+
+```python
+import os
+os.getcwd()
+```
+
+**82. How to list files in a directory?**
+
+```python
+os.listdir(".")
+```
+
+**83. How to run shell commands from Python?**
+
+```python
+import subprocess
+subprocess.run(["ls","-l"])
+```
+
+**84. How to check Python version in code?**
+
+```python
+import sys
+print(sys.version)
+```
+
+**85. How to get system info?**
+
+```python
+import platform
+platform.system()
+```
+
+---
+
+## **P. Web + API**
+
+**86. What is Flask?**
+
+* Lightweight web framework.
+
+**87. What is Django?**
+
+* Full-stack web framework.
+
+**88. Difference between Flask and Django?**
+
+* Flask: Micro, flexible.
+* Django: Full, batteries included.
+
+**89. How to call API in Python?**
+
+```python
+import requests
+r = requests.get("https://api.github.com")
+```
+
+**90. What is FastAPI?**
+
+* Modern async web framework.
+
+---
+
+## **Q. Miscellaneous**
+
+**91. What is `__main__` in Python?**
+
+* Special block to check if script is run directly.
+
+**92. Explain Python’s `id()` function.**
+
+* Returns object’s memory address.
+
+**93. What are weak references?**
+
+* References that don’t increase ref count (`weakref` module).
+
+**94. Explain hashable objects.**
+
+* Objects usable as dict/set keys (immutable, `__hash__`).
+
+**95. Difference between mutable and immutable types?**
+
+* Mutable: list, dict, set.
+* Immutable: str, tuple, int.
+
+**96. What is `frozenset`?**
+
+* Immutable version of set.
+
+**97. Difference between `str()` and `repr()`?**
+
+* `str`: Readable.
+* `repr`: Debug/developer representation.
+
+**98. Explain `enumerate()`.**
+
+* Returns index and value in iteration.
+
+**99. Explain `zip()`.**
+
+* Combines iterables element-wise.
+
+**100. What is `dataclass` in Python?**
+
+* Introduced in Python 3.7, auto-generates `__init__`, `__repr__`, etc.
+
+```python
+from dataclasses import dataclass
+@dataclass
+class Point:
+    x:int
+    y:int
+```
+
+---
+
+✅ That’s the **Top 100 Python Interview Q&A** — from basics to advanced.
+
+👉 Do you want me to now create a **PDF version** of this list so you can keep it as a quick revision guide before interviews?
+
+
+
+65. Difference between pip and conda?
+
+pip → installs Python packages.
+
+conda → installs Python + non-Python dependencies.
+
+
+
+56. What is Python’s namespace?
+
+Mapping of names → objects (local, global, built-in).
+
+57. Explain LEGB rule.
+
+Local → Enclosing → Global → Built-in scope lookup.
+
+58. What are Python closures?
+
+Function remembers enclosing scope variables.
+
+59. What is a generator?
+
+Function with yield, returns iterable object.
+
+60. Difference between iterator and iterable?
+
+Iterable: Can be looped (list, str).
+
+Iterator: Object with __iter__() & __next__()
+
+
+Excellent question 👌 — **Monkey patching** is a classic interview topic in Python.
+
+---
+
+## 🐒 **Monkey Patching in Python**
+
+### 🔑 Definition
+
+👉 **Monkey patching** means **modifying or extending a class or module at runtime**, without changing its original source code.
+
+In other words, you "patch" (replace or add) methods/attributes dynamically while the program is running.
+
+---
+
+### 📌 Example 1: Replacing a Method in a Class
+
+```python
+class Animal:
+    def speak(self):
+        return "Original sound"
+
+# Define a new function
+def new_speak(self):
+    return "Woof Woof!"
+
+# Monkey patching → replace method at runtime
+Animal.speak = new_speak
+
+a = Animal()
+print(a.speak())   # Woof Woof!
+```
+
+Here, we **changed the behavior** of `speak()` without editing the `Animal` class code.
+
+---
+
+### 📌 Example 2: Patching a Module (built-in)
+
+```python
+import math
+
+# Replace sqrt with custom function
+math.sqrt = lambda x: "hacked!"
+
+print(math.sqrt(16))   # hacked!
+```
+
+⚠️ This shows why monkey patching can be **dangerous** if misused.
+
+---
+
+### ✅ Key Points for Interview
+
+1. **Definition** → Monkey patching is changing a class/module/method at runtime.
+2. **Use cases** → Quick fixes, testing, mocking methods.
+3. **Risks** → Can make code harder to debug, maintain, or predict.
+4. **Alternatives** → Use proper design patterns (inheritance, decorators) instead of monkey patching.
+
+---
+
+### 📌 Example 3: Testing Use Case (Mocking)
+
+```python
+class PaymentGateway:
+    def pay(self, amount):
+        return "Real payment done!"
+
+# Monkey patching in test
+def fake_pay(self, amount):
+    return "Payment mocked!"
+
+PaymentGateway.pay = fake_pay
+
+pg = PaymentGateway()
+print(pg.pay(100))   # Payment mocked!
+```
+
+This is actually **useful in unit testing** where we don’t want to call real APIs.
+
+---
+
+# 📝 Interview-Ready Answer
+
+👉 *Monkey patching is the practice of modifying or extending classes or modules at runtime. In Python, since everything is dynamic, we can replace methods or attributes on the fly. It is useful in testing and quick fixes but should be avoided in production as it can make code unpredictable and hard to maintain.*
+
+---
+
+Do you want me to also prepare a **list of interview trick questions** around monkey patching (like patching built-ins, patching instances vs classes, etc.)?
+
+
+
+Great 👌 These are **very popular built-in functions in Python** — interviewers love asking about them. Let’s go through each with **clear explanation + example code** so you’ll be ready.
+
+---
+
+# 🔑 **Important Python Built-in Functions**
+
+---
+
+## 1. **`map(function, iterable)`**
+
+Applies a function to each item in an iterable and returns a map object (iterator).
+
+```python
+nums = [1, 2, 3, 4]
+
+result = map(lambda x: x**2, nums)
+print(list(result))   # [1, 4, 9, 16]
+```
+
+---
+
+## 2. **`filter(function, iterable)`**
+
+Filters elements for which the function returns **True**.
+
+```python
+nums = [10, 15, 20, 25]
+
+result = filter(lambda x: x % 2 == 0, nums)
+print(list(result))   # [10, 20]
+```
+
+---
+
+## 3. **`reduce(function, iterable)`**
+
+From `functools` module → reduces iterable to a single value.
+
+```python
+from functools import reduce
+
+nums = [1, 2, 3, 4]
+
+result = reduce(lambda x, y: x + y, nums)
+print(result)   # 10
+```
+
+---
+
+## 4. **`zip(iter1, iter2, ...)`**
+
+Combines elements from multiple iterables into tuples.
+
+```python
+names = ["Amit", "Ravi", "Neha"]
+scores = [85, 90, 95]
+
+result = zip(names, scores)
+print(list(result))  
+# [('Amit', 85), ('Ravi', 90), ('Neha', 95)]
+```
+
+---
+
+## 5. **`enumerate(iterable, start=0)`**
+
+Returns index and value as pairs.
+
+```python
+fruits = ["apple", "banana", "cherry"]
+
+for i, fruit in enumerate(fruits, start=1):
+    print(i, fruit)
+# 1 apple
+# 2 banana
+# 3 cherry
+```
+
+---
+
+## 6. **`any(iterable)`**
+
+Returns `True` if **any element is True**, else `False`.
+
+```python
+values = [0, False, 5]
+
+print(any(values))   # True (because 5 is truthy)
+```
+
+---
+
+## 7. **`all(iterable)`**
+
+Returns `True` if **all elements are True**, else `False`.
+
+```python
+values = [1, True, "hello"]
+
+print(all(values))   # True
+```
+
+---
+
+## 8. **`sorted(iterable, key=None, reverse=False)`**
+
+Returns a new sorted list (does not modify original).
+
+```python
+nums = [5, 2, 9, 1]
+
+print(sorted(nums))                 # [1, 2, 5, 9]
+print(sorted(nums, reverse=True))   # [9, 5, 2, 1]
+
+words = ["banana", "apple", "cherry"]
+print(sorted(words, key=len))       # ['apple', 'banana', 'cherry']
+```
+
+---
+
+# ✅ Interview Quick Summary
+
+* **`map`** → Apply function to all items.
+* **`filter`** → Keep items that satisfy condition.
+* **`reduce`** → Collapse iterable into one value.
+* **`zip`** → Pair elements from multiple iterables.
+* **`enumerate`** → Get index + value together.
+* **`any`** → True if at least one element is True.
+* **`all`** → True if all elements are True.
+* **`sorted`** → Returns a sorted list, supports custom keys.
+
+---
+
+👉 Do you want me to also prepare a **comparison table** (map vs filter vs reduce vs list comprehension) — since interviewers often ask "when should you use which"?
+
+
+
+
+In Python, you can check if an object belongs to a class (or its subclasses) using a few built-in functions:
+
+---
+
+### ✅ 1. Using `isinstance()`
+
+Checks if an object is an instance of a class **or any subclass**.
+
+```python
+class Animal:
+    pass
+
+class Dog(Animal):
+    pass
+
+d = Dog()
+
+print(isinstance(d, Dog))      # True
+print(isinstance(d, Animal))   # True (because Dog inherits from Animal)
+print(isinstance(d, object))   # True (all classes inherit from object)
+```
+
+---
+
+### ✅ 2. Using `type()`
+
+Checks if the object is **exactly** an instance of the given class (not a subclass).
+
+```python
+print(type(d) is Dog)      # True
+print(type(d) is Animal)   # False
+```
+
+---
+
+### ✅ 3. Using `issubclass()`
+
+This is for checking class inheritance, not objects.
+You’d use it to verify whether one class derives from another:
+
+```python
+print(issubclass(Dog, Animal))  # True
+print(issubclass(Dog, object))  # True
+```
+
+---
+
+### ⚡ Quick rule of thumb:
+
+* Use **`isinstance(obj, Class)`** → for objects (allows subclass check).
+* Use **`type(obj) is Class`** → for strict class match.
+* Use **`issubclass(Sub, Super)`** → for class-to-class check.
+
+---
+
+👉 Do you want me to also show you how this works in case of **multiple inheritance and abstract classes** (since interviewers often ask that)?
+
+
+
+Got it 👍 Let’s **go deeper into OOP in Python** so you’ll be well-prepared for interviews.
+You already know the 5 pillars: **Class, Object, Inheritance, Encapsulation, Polymorphism, Abstraction**.
+But Python’s OOP is very **flexible and powerful**, so there’s more to explore.
+
+---
+
+# 🔥 **Detailed OOP Topics in Python**
+
+## 1. **Constructors & Destructors**
+
+* **Constructor (`__init__`)** initializes objects.
+* **Destructor (`__del__`)** is called when an object is deleted.
+
+```python
+class Person:
+    def __init__(self, name):
+        print("Constructor called")
+        self.name = name
+
+    def __del__(self):
+        print("Destructor called")
+
+p = Person("Dev")
+del p   # Destructor called
+```
+
+---
+
+## 2. **Types of Methods**
+
+* **Instance Methods** → work on object (need `self`)
+* **Class Methods** → work on class itself (use `@classmethod`, `cls`)
+* **Static Methods** → utility functions, don’t need `self` or `cls`
+
+```python
+class Student:
+    school = "XYZ School"
+
+    def __init__(self, name):
+        self.name = name
+
+    def show(self):   # Instance Method
+        return f"Name: {self.name}, School: {Student.school}"
+
+    @classmethod
+    def change_school(cls, new_school):   # Class Method
+        cls.school = new_school
+
+    @staticmethod
+    def info():   # Static Method
+        return "This is a Student class"
+
+s = Student("Amit")
+print(s.show())
+Student.change_school("ABC School")
+print(s.show())
+print(Student.info())
+```
+
+---
+
+## 3. **Types of Inheritance**
+
+* **Single** → One child, one parent.
+* **Multiple** → Child inherits from multiple parents.
+* **Multilevel** → Parent → Child → Grandchild.
+* **Hierarchical** → One parent, multiple children.
+* **Hybrid** → Combination.
+
+```python
+class A: pass
+class B(A): pass        # Single
+class C: pass
+class D(A, C): pass     # Multiple
+class E(D): pass        # Multilevel
+```
+
+Python uses **MRO (Method Resolution Order)** to decide which parent class method runs when multiple inheritance is used.
+
+---
+
+## 4. **Method Overloading (Not Directly Supported)**
+
+Python doesn’t support traditional method overloading (same method name with different parameters).
+But you can simulate it with default arguments or `*args`.
+
+```python
+class Calculator:
+    def add(self, *args):
+        return sum(args)
+
+c = Calculator()
+print(c.add(2, 3))        # 5
+print(c.add(1, 2, 3, 4))  # 10
+```
+
+---
+
+## 5. **Method Overriding**
+
+Child class redefines parent’s method.
+
+```python
+class Animal:
+    def speak(self):
+        return "Some sound"
+
+class Dog(Animal):
+    def speak(self):   # Overridden
+        return "Woof!"
+
+print(Dog().speak())
+```
+
+---
+
+## 6. **Operator Overloading**
+
+Python allows customizing operators with **special methods** (`__add__`, `__sub__`, `__str__`, etc.).
+
+```python
+class Book:
+    def __init__(self, pages):
+        self.pages = pages
+
+    def __add__(self, other):   # + operator overloading
+        return self.pages + other.pages
+
+b1 = Book(100)
+b2 = Book(200)
+print(b1 + b2)  # 300
+```
+
+---
+
+## 7. **Data Hiding & Name Mangling**
+
+* Private attributes use `__` (double underscore).
+* Python does *name mangling* internally: `__var` → `_ClassName__var`.
+
+```python
+class Test:
+    __secret = "hidden"
+
+print(Test._Test__secret)   # Access via name mangling
+```
+
+---
+
+## 8. **Abstract Classes vs Interfaces**
+
+* Python doesn’t have “interfaces” like Java.
+* But abstract classes (from `abc` module) serve the same purpose.
+
+---
+
+## 9. **Metaclasses (Advanced)**
+
+* Classes themselves are **objects** in Python, created by a **metaclass** (`type`).
+* By default, all classes are instances of `type`.
+* You can define custom metaclasses to control class creation.
+
+```python
+class Meta(type):
+    def __new__(cls, name, bases, dct):
+        print(f"Creating class {name}")
+        return super().__new__(cls, name, bases, dct)
+
+class MyClass(metaclass=Meta):
+    pass
+```
+
+---
+
+## 10. **Duck Typing**
+
+“If it walks like a duck and quacks like a duck, it’s a duck.”
+Python doesn’t care about object type, only whether it has the needed method.
+
+```python
+class Duck:
+    def sound(self): return "Quack"
+
+class Dog:
+    def sound(self): return "Woof"
+
+def make_sound(animal):
+    print(animal.sound())
+
+make_sound(Duck())  # Quack
+make_sound(Dog())   # Woof
+```
+
+---
+
+# ✅ Interview-Smart Summary
+
+* **Basic OOP:** Class, Object, Inheritance, Encapsulation, Polymorphism, Abstraction.
+* **Advanced OOP:** Constructors, Destructors, Method Types, Operator Overloading, Method Resolution Order (MRO), Abstract Classes, Duck Typing, Metaclasses.
+
+---
+
+👉 Do you want me to create a **mind map/diagram** that shows all these OOP concepts (basic + advanced) in one visual chart for quick revision?
+
+
+
+Great question 👌 — the **Global Interpreter Lock (GIL)** is one of the most important concepts in Python, especially in interviews.
+
+---
+
+## 🔑 **What is the GIL (Global Interpreter Lock)?**
+
+* The **GIL is a mutex (lock)** used in **CPython** (the default Python implementation).
+* It ensures that **only one thread** can execute Python **bytecode** at a time, **even on multi-core processors**.
+
+This means:
+👉 If you have multiple Python threads, only **one thread runs Python code at a time**.
+👉 Other threads must wait until the lock is released.
+
+---
+
+## ⚙️ **Why does Python have a GIL?**
+
+* Python uses **reference counting** for memory management (to track objects in memory).
+* Reference counting is **not thread-safe** by default.
+* To avoid complicated race conditions and make memory management simpler, the **GIL was introduced**.
+
+---
+
+## 📌 Example to Understand
+
+```python
+import threading
+
+x = 0
+
+def increment():
+    global x
+    for _ in range(1000000):
+        x += 1
+
+t1 = threading.Thread(target=increment)
+t2 = threading.Thread(target=increment)
+
+t1.start()
+t2.start()
+t1.join()
+t2.join()
+
+print(x)
+```
+
+You might expect `x = 2,000,000`, but because of the GIL, threads don’t really run in parallel — they take turns.
+So Python doesn’t fully utilize multi-core CPUs for CPU-bound tasks.
+
+---
+
+## ✅ **Key Points for Interview**
+
+1. **GIL restricts true parallelism in threads**
+
+   * Multiple threads can exist, but only one executes at a time.
+
+2. **I/O-bound tasks benefit from threads**
+
+   * When one thread waits for I/O (like network or file), GIL switches to another thread.
+
+3. **CPU-bound tasks don’t benefit from threads**
+
+   * Because threads fight for the GIL, you don’t get real speed-up.
+
+4. **Workarounds**
+
+   * Use **multiprocessing** (each process has its own GIL).
+   * Use alternative interpreters (like **Jython, IronPython, or PyPy**) that don’t have GIL.
+   * Use **C extensions** that release the GIL during heavy computation (e.g., NumPy).
+
+---
+
+## 📝 One-Line Definition (Interview Ready)
+
+👉 The **Global Interpreter Lock (GIL)** is a mechanism in CPython that allows only **one thread to execute Python bytecode at a time**, simplifying memory management but limiting multi-core parallelism.
+
+---
+
+Would you like me to also make a **diagram showing how GIL blocks multiple threads** so you can easily recall it in interviews?
+
+
+Perfect follow-up 👍 Let’s clear this up.
+
+---
+
+## **What it means that Python is “dynamically typed”**
+
+👉 In programming, *typing* means how a language handles **data types** (like `int`, `float`, `str`, etc.).
+
+### 1. **Statically Typed Languages** (like C, C++, Java)
+
+* You **must declare the type** of a variable before using it.
+* Example in C:
+
+  ```c
+  int x = 10;     // x is an integer
+  x = "hello";   // ❌ ERROR, cannot assign string to int
+  ```
+
+### 2. **Dynamically Typed Languages** (like Python, JavaScript, Ruby)
+
+* You **don’t declare types explicitly**.
+* The interpreter figures out the type **at runtime** (when the code runs).
+* Example in Python:
+
+  ```python
+  x = 10        # x is an int now
+  print(type(x))   # <class 'int'>
+
+  x = "hello"   # now x is a str
+  print(type(x))   # <class 'str'>
+  ```
+* Here, `x` changed its type from **integer → string** without any error.
+
+---
+
+## ✅ In Simple Terms
+
+“Python is dynamically typed” means:
+
+* **Variable types are determined automatically at runtime.**
+* You don’t have to declare the type when creating variables.
+* A variable can **hold different types at different times.**
+
+---
+
+⚡ **Extra Interview Point:**
+
+* **Advantages**: Easier, faster coding, more flexibility.
+* **Disadvantages**: Type errors may only show up at runtime, not before (less safe than static typing).
+
+---
+
+👉 Do you want me to also explain the difference between **dynamic typing vs dynamic binding** (they often ask this in Python interviews)?
+
+
+
+
+
+Great question 👌 Let’s break it down clearly.
+
+### **What it means when we say Python is an “interpreted language”**
+
+👉 In programming, there are generally **two main ways** code gets executed:
+
+1. **Compiled Languages** (like C, C++, Java)
+
+   * Code is first translated by a **compiler** into **machine code (binary)** before execution.
+   * This machine code runs directly on the CPU.
+   * Example: In C, you write `hello.c`, then run `gcc hello.c -o hello`, which produces an executable `hello`.
+
+2. **Interpreted Languages** (like Python, JavaScript, Ruby)
+
+   * Code is executed **line by line** (or statement by statement) by an **interpreter program**.
+   * No separate compilation step is needed before running.
+   * Example: In Python, you just write `hello.py` and run `python hello.py`. The Python interpreter reads each line and executes it on the fly.
+
+---
+
+### **So, in Python’s case:**
+
+* When you run a Python script, the **Python interpreter** (like `CPython`) reads your code line by line.
+* It first converts it into an **intermediate bytecode** (not machine code).
+* Then, the **Python Virtual Machine (PVM)** executes that bytecode.
+
+---
+
+✅ **In simple terms:**
+“Python is an interpreted language” means **you don’t need to compile it before running — the interpreter directly executes your code line by line.**
+
+---
+
+⚡Extra point for interviews:
+Even though Python is called "interpreted," internally it **compiles your code into bytecode first**, but this happens automatically and transparently. You don’t manually compile like in C/C++.
+
+---
+
+Would you like me to also explain with a **step-by-step diagram of how Python runs your code** (Source Code → Bytecode → Interpreter → Machine)?
+
+
+
+Nice — good question! Here's a clear, practical explanation of how garbage collection (GC) works in Python (mostly CPython), with small examples and tips for debugging/avoiding leaks.
+
+# Overview — two parts in CPython
+
+1. **Reference counting (immediate).** Every object has a reference count. When the count drops to 0, the object’s memory is freed immediately.
+2. **Cyclic garbage collector (periodic).** Detects reference cycles (objects that reference each other) that reference counting alone can't reclaim. It’s a generational, mark-and-sweep style GC for container objects.
+
+# Reference counting — simple and deterministic
+
+* When you do `a = obj`, the refcount of `obj` increases. `del a` or reassign reduces the refcount.
+* If refcount hits 0, CPython calls the object’s destructor (`__del__` if present) and frees it right away.
+* Fast and predictable, but cycles are a problem (A→B→A).
+
+Example showing immediate freeing:
+
+```py
+class Foo:
+    def __del__(self):
+        print("Foo destroyed")
+
+o = Foo()   # refcount 1
+o2 = o      # refcount 2
+del o
+del o2      # refcount -> 0, "Foo destroyed" prints immediately
+```
+
+# Cycles and the cyclic GC
+
+* If objects reference each other (A → B → A) and there are no external references, refcounts never reach 0, so CPython’s cyclic GC finds and collects them.
+* The cyclic GC runs periodically and organizes objects into **generations** (0,1,2). New objects go into gen0; surviving objects get promoted. Gen0 is collected often; gen2 rarely.
+* The `gc` module exposes control and diagnostic tools.
+
+Example of a cycle:
+
+```py
+class Node:
+    def __init__(self):
+        self.other = None
+    def __del__(self):
+        print("Node __del__")
+
+a = Node()
+b = Node()
+a.other = b
+b.other = a
+del a
+del b
+# If both have __del__, GC may not collect them automatically (see below).
+```
+
+# Important caveat: `__del__` (finalizers) & cycles
+
+* If objects in a cycle define `__del__`, CPython won’t automatically collect them (it places them in `gc.garbage`) because calling destructors in arbitrary order can be unsafe. This leads to memory not being freed.
+* Avoid `__del__` when possible; use context managers or `weakref.finalize` for cleanup.
+
+# The `gc` module — inspect & control
+
+```py
+import gc
+
+gc.disable()            # disable cyclic GC (rarely needed)
+gc.enable()             # enable it
+
+print(gc.get_threshold())   # tuple of thresholds for gen0, gen1, gen2
+gc.set_threshold(700, 10, 10)  # tune thresholds
+
+# force a collection and get number of unreachable objects found
+unreachable = gc.collect()
+print("unreachable objects collected:", unreachable)
+
+# see objects tracked by GC (containers)
+print(len(gc.get_objects()))
+```
+
+Debugging cycles:
+
+```py
+gc.set_debug(gc.DEBUG_LEAK)
+gc.collect()
+# prints info about unreachable / uncollectable objects
+```
+
+# Avoiding memory leaks / best practices
+
+* Prefer simple ownership patterns; avoid unnecessary global references.
+* Avoid `__del__` — use context managers (`with`) or `weakref.finalize`.
+* Break cycles explicitly (set references to `None`) if objects are long-lived.
+* Use `weakref` for back-references from child→parent to avoid strong cycles.
+
+Example using `weakref`:
+
+```py
+import weakref
+
+class Parent:
+    pass
+
+class Child:
+    def __init__(self, parent):
+        self.parent = weakref.ref(parent)  # does not increment parent's refcount
+```
+
+# Other Python implementations
+
+* **CPython:** refcount + cyclic GC (explained above).
+* **PyPy:** tracing, generational GC (no refcounting).
+* **Jython / IronPython:** use JVM/.NET GC respectively.
+  So behavior (timing of collection) can differ across implementations.
+
+# When you should care
+
+* Long-running processes (servers, daemons) — leaks accumulate over time.
+* Objects holding external resources (file handles, sockets) — use explicit close or context managers.
+* If memory usage grows unexpectedly, use `gc`, `tracemalloc`, and tools like `objgraph` to diagnose.
+
+# Quick workflow to debug a leak
+
+1. Enable GC debug (`gc.set_debug`).
+2. Force `gc.collect()` periodically and log `gc.get_objects()` size.
+3. Use `tracemalloc` to see which code allocates memory.
+4. Use `objgraph` (third-party) to draw reference chains to a leaking object.
+
+---
+
+If you want, I can:
+
+* Show a minimal reproducible leak example and step through diagnosing it, or
+* Provide a short script that logs memory growth and shows most-common object types on your process.
+
+Which would you prefer?
+
+
+Got it 👍
+You want me to prepare a **list of mostly asked Python interview questions with answers**.
+I’ll cover **core Python, OOP, advanced concepts, and some coding/real-world scenarios** that are common in interviews.
+
+---
+
+# 🐍 Mostly Asked Python Interview Questions with Answers
+
+---
+
+## **1. What are Python’s key features?**
+
+* Interpreted, dynamically typed, high-level language.
+* Easy syntax, large standard library, cross-platform.
+* Supports multiple paradigms (OOP, functional, procedural).
+* Automatic memory management (garbage collection).
+
+---
+
+## **2. Difference between list, tuple, and set?**
+
+* **List**: Ordered, mutable, allows duplicates. `l = [1, 2, 2]`
+* **Tuple**: Ordered, immutable, allows duplicates. `t = (1, 2, 2)`
+* **Set**: Unordered, mutable, unique elements only. `s = {1, 2}`
+
+---
+
+## **3. What are Python’s data types?**
+
+* Numeric (int, float, complex)
+* Sequence (list, tuple, range, string)
+* Set
+* Dictionary
+* Boolean
+* NoneType
+
+---
+
+## **4. Difference between `is` and `==`?**
+
+* `is`: checks **identity** (whether two variables point to same object).
+* `==`: checks **value equality**.
+
+```python
+a = [1, 2]
+b = [1, 2]
+print(a == b)  # True (values equal)
+print(a is b)  # False (different memory locations)
+```
+
+---
+
+## **5. What are Python decorators?**
+
+* Functions that modify behavior of other functions without changing their code.
+
+```python
+def decorator(func):
+    def wrapper():
+        print("Before call")
+        func()
+        print("After call")
+    return wrapper
+
+@decorator
+def say_hello():
+    print("Hello")
+
+say_hello()
+```
+
+---
+
+## **6. Explain Python’s memory management.**
+
+* Managed by Python’s **Garbage Collector (GC)**.
+* Uses **reference counting + cyclic garbage collector**.
+* Modules: `gc` can control collection manually.
+
+---
+
+## **7. Difference between shallow copy and deep copy?**
+
+* **Shallow copy**: Copies references (changes in nested objects reflect).
+* **Deep copy**: Creates completely independent copy.
+
+```python
+import copy
+a = [[1,2],[3,4]]
+shallow = copy.copy(a)
+deep = copy.deepcopy(a)
+```
+
+---
+
+## **8. What is GIL (Global Interpreter Lock)?**
+
+* A mutex in CPython that allows only **one thread to execute Python bytecode at a time**.
+* Prevents true parallelism in threads.
+* Multiprocessing bypasses GIL.
+
+---
+
+## **9. Difference between Python 2 and Python 3?**
+
+* Print: `print "hi"` (Py2) vs `print("hi")` (Py3).
+* Division: `5/2 = 2` (Py2 int division) vs `5/2 = 2.5` (Py3 true division).
+* Unicode: Strings are Unicode by default in Python 3.
+
+---
+
+## **10. What are Python’s OOP concepts?**
+
+* Class, Object, Inheritance, Encapsulation, Polymorphism, Abstraction.
+
+---
+
+## **11. What are Python’s data structures?**
+
+* List, Tuple, Set, Dict.
+* Advanced: `collections` module → `deque`, `defaultdict`, `Counter`, `OrderedDict`, `namedtuple`.
+
+---
+
+## **12. What are Python’s namespaces?**
+
+* **Built-in**: Functions like `len()`, `print()`.
+* **Global**: Defined at module level.
+* **Local**: Inside a function.
+* **Enclosing**: Nested functions.
+
+---
+
+## **13. Explain `@staticmethod`, `@classmethod`, and instance method.**
+
+```python
+class Demo:
+    def instance_method(self):  # needs self
+        print("Instance method")
+
+    @classmethod
+    def class_method(cls):  # needs class
+        print("Class method")
+
+    @staticmethod
+    def static_method():  # no self/cls
+        print("Static method")
+```
+
+---
+
+## **14. What is `*args` and `**kwargs`?**
+
+* `*args`: Variable-length positional arguments.
+* `**kwargs`: Variable-length keyword arguments.
+
+```python
+def demo(*args, **kwargs):
+    print(args)
+    print(kwargs)
+
+demo(1, 2, 3, a=10, b=20)
+```
+
+---
+
+## **15. How do you manage packages in Python?**
+
+* Using **pip** (`pip install requests`).
+* Virtual environments (`venv`, `virtualenv`, `conda`).
+
+---
+
+## **16. Explain Python’s `with` statement.**
+
+* Used for resource management (context manager).
+* Ensures file/connection is closed properly.
+
+```python
+with open("file.txt", "r") as f:
+    data = f.read()
+```
+
+---
+
+## **17. Difference between `@property` and normal methods?**
+
+* `@property` makes a method act like an attribute.
+
+```python
+class Circle:
+    def __init__(self, r):
+        self._r = r
+    @property
+    def area(self):
+        return 3.14 * self._r**2
+
+c = Circle(5)
+print(c.area)  # No parentheses
+```
+
+---
+
+## **18. Commonly used built-in functions?**
+
+* `map()`, `filter()`, `reduce()`, `zip()`, `enumerate()`, `any()`, `all()`, `sorted()`.
+
+---
+
+## **19. How is exception handling done in Python?**
+
+```python
+try:
+    x = 1/0
+except ZeroDivisionError:
+    print("Division by zero")
+finally:
+    print("Always runs")
+```
+
+---
+
+## **20. How to find the nth highest salary in SQL using Python?**
+
+```python
+import heapq
+salaries = [100, 200, 300, 400]
+print(heapq.nlargest(2, salaries)[-1])  # 2nd highest
+```
+
+---
+
+✅ This covers **core to advanced Python concepts**.
+
+👉 Do you want me to also prepare a **list of coding problems (with solutions)** that are most asked in Python interviews (like reverse string, Fibonacci, anagrams, subarray sum, etc.)?
+
+
+
+
+Perfect 👍
+You want a **comprehensive list of the Top 100 Python Interview Questions with Answers**.
+I’ll break them into sections so it’s easier to revise:
+
+---
+
+# 🐍 Top 100 Python Interview Questions (with Answers)
+
+---
+
+## **A. Core Python Basics**
+
+**1. What is Python?**
+
+* High-level, interpreted, dynamically typed programming language.
+
+**2. Who created Python?**
+
+* Guido van Rossum in 1991.
+
+**3. Why is Python popular?**
+
+* Simple syntax, huge libraries, cross-platform, supports OOP + functional.
+
+**4. Is Python compiled or interpreted?**
+
+* Interpreted (executed line by line).
+
+**5. Difference between Python and Java?**
+
+* Python is dynamically typed, Java is statically typed.
+* Python is interpreted, Java is compiled to bytecode and runs on JVM.
+
+**6. What are Python’s data types?**
+
+* Numeric, Sequence (list, tuple, range, string), Set, Dictionary, Boolean, None.
+
+**7. Explain Python’s type casting.**
+
+* `int("10")`, `float("10.5")`, `str(123)`.
+
+**8. What is dynamic typing?**
+
+* Variable type determined at runtime.
+
+**9. Explain Python’s indentation.**
+
+* Used instead of `{}` for blocks.
+
+**10. What are Python’s keywords?**
+
+* Reserved words (`def`, `class`, `try`, `lambda`, etc.) → `keyword.kwlist`.
+
+---
+
+## **B. Data Structures**
+
+**11. Difference between list, tuple, set, dict?**
+
+* List: Ordered, mutable.
+* Tuple: Ordered, immutable.
+* Set: Unordered, unique elements.
+* Dict: Key-value pairs.
+
+**12. How to remove duplicates from a list?**
+
+```python
+lst = [1,2,2,3]
+unique = list(set(lst))
+```
+
+**13. Difference between shallow and deep copy?**
+
+* Shallow: Copies reference of inner objects.
+* Deep: Creates full independent copy.
+
+**14. How to merge two dictionaries?**
+
+```python
+d1 = {"a":1}
+d2 = {"b":2}
+merged = {**d1, **d2}
+```
+
+**15. How to sort a dictionary by value?**
+
+```python
+d = {"a":3,"b":1,"c":2}
+sorted_d = dict(sorted(d.items(), key=lambda x:x[1]))
+```
+
+---
+
+## **C. Strings**
+
+**16. Reverse a string in Python.**
+
+```python
+s = "hello"
+print(s[::-1])
+```
+
+**17. Check if a string is palindrome.**
+
+```python
+s == s[::-1]
+```
+
+**18. Difference between `isalpha()`, `isdigit()`, `isalnum()`?**
+
+* `isalpha()` → only letters
+* `isdigit()` → only digits
+* `isalnum()` → letters + digits
+
+**19. String formatting methods?**
+
+* f-string, `str.format()`, `%`.
+
+**20. Find frequency of characters in a string.**
+
+```python
+from collections import Counter
+print(Counter("hello"))
+```
+
+---
+
+## **D. Functions**
+
+**21. What are Python functions?**
+
+* Blocks of reusable code defined with `def`.
+
+**22. What is `*args` and `**kwargs`?**
+
+* `*args`: variable-length positional args.
+* `**kwargs`: variable-length keyword args.
+
+**23. Difference between return and yield?**
+
+* `return`: Exits function and returns value.
+* `yield`: Returns generator, function state preserved.
+
+**24. What are lambda functions?**
+
+* Anonymous one-liner functions.
+
+```python
+f = lambda x: x*x
+```
+
+**25. Explain map, filter, reduce.**
+
+* `map(func, iterable)` → applies function.
+* `filter(func, iterable)` → filters elements.
+* `reduce(func, iterable)` → reduces to single value.
+
+---
+
+## **E. OOP in Python**
+
+**26. Difference between class and object?**
+
+* Class = blueprint, Object = instance.
+
+**27. Explain inheritance in Python.**
+
+* Child class inherits parent properties.
+
+**28. What is multiple inheritance?**
+
+* Class inherits from multiple parents.
+
+**29. What is polymorphism?**
+
+* Same method name, different behavior.
+
+**30. Difference between `@staticmethod`, `@classmethod`, instance method?**
+
+* Static: No self/cls.
+* Class: Takes cls.
+* Instance: Takes self.
+
+**31. What is encapsulation?**
+
+* Restricting access using `_` or `__`.
+
+**32. What is abstraction?**
+
+* Hiding implementation details.
+
+**33. What are magic methods?**
+
+* Dunder methods like `__init__`, `__str__`, `__len__`.
+
+**34. Difference between `__new__` and `__init__`?**
+
+* `__new__`: Creates object.
+* `__init__`: Initializes object.
+
+**35. What is metaclass?**
+
+* Class of a class, controls class creation.
+
+---
+
+## **F. Advanced Python**
+
+**36. What is GIL?**
+
+* Global Interpreter Lock → allows one thread at a time in CPython.
+
+**37. Difference between multithreading and multiprocessing?**
+
+* Threading: Lightweight, shares memory.
+* Multiprocessing: Separate processes, true parallelism.
+
+**38. Explain Python’s garbage collection.**
+
+* Reference counting + cyclic GC.
+
+**39. What is monkey patching?**
+
+* Modifying code at runtime.
+
+**40. Difference between deep copy and assignment?**
+
+* Assignment: Copies reference.
+* Deep copy: Creates new copy.
+
+---
+
+## **G. File Handling**
+
+**41. How to read/write a file?**
+
+```python
+with open("file.txt","r") as f:
+    print(f.read())
+```
+
+**42. File modes in Python?**
+
+* `r`, `w`, `a`, `rb`, `wb`.
+
+**43. How to check if a file exists?**
+
+```python
+import os
+os.path.exists("file.txt")
+```
+
+**44. How to delete a file?**
+
+```python
+os.remove("file.txt")
+```
+
+**45. Difference between `with open()` and normal open?**
+
+* `with` automatically closes file.
+
+---
+
+## **H. Modules & Packages**
+
+**46. What is a Python module?**
+
+* A `.py` file containing code.
+
+**47. What is a package?**
+
+* Directory with `__init__.py`.
+
+**48. How to install external packages?**
+
+* `pip install package_name`
+
+**49. Explain `__init__.py`.**
+
+* Makes a directory a package.
+
+**50. How to import module partially?**
+
+```python
+from math import sqrt
+```
+
+---
+
+## **I. Exception Handling**
+
+**51. Explain try-except-finally.**
+
+* try: code, except: handle error, finally: always executes.
+
+**52. Difference between Exception and Error?**
+
+* Error: Issues in code.
+* Exception: Run-time problems.
+
+**53. How to raise an exception?**
+
+```python
+raise ValueError("Invalid")
+```
+
+**54. Difference between custom exception and built-in exception?**
+
+* Custom → user-defined by subclassing Exception.
+
+**55. Multiple except blocks?**
+
+* Yes, can handle multiple exception types separately.
+
+---
+
+## **J. Important Python Concepts**
+
+**56. What is Python’s namespace?**
+
+* Mapping of names → objects (local, global, built-in).
+
+**57. Explain LEGB rule.**
+
+* Local → Enclosing → Global → Built-in scope lookup.
+
+**58. What are Python closures?**
+
+* Function remembers enclosing scope variables.
+
+**59. What is a generator?**
+
+* Function with `yield`, returns iterable object.
+
+**60. Difference between iterator and iterable?**
+
+* Iterable: Can be looped (list, str).
+* Iterator: Object with `__iter__()` & `__next__()`.
+
+---
+
+## **K. Libraries & Tools**
+
+**61. Common Python libraries?**
+
+* NumPy, Pandas, Matplotlib, Flask, Django, Requests.
+
+**62. What is Pandas used for?**
+
+* Data analysis and manipulation.
+
+**63. Difference between NumPy array and list?**
+
+* NumPy: Faster, supports vectorized ops.
+* List: General-purpose.
+
+**64. What is virtual environment?**
+
+* Isolated env for dependencies.
+
+**65. Difference between pip and conda?**
+
+* pip → installs Python packages.
+* conda → installs Python + non-Python dependencies.
+
+---
+
+## **L. Coding/Problem-Solving**
+
+**66. Fibonacci sequence in Python.**
+
+```python
+def fib(n):
+    a,b = 0,1
+    for _ in range(n):
+        print(a, end=" ")
+        a,b = b,a+b
+```
+
+**67. Factorial using recursion.**
+
+```python
+def fact(n):
+    return 1 if n==0 else n*fact(n-1)
+```
+
+**68. Check prime number.**
+
+```python
+def is_prime(n):
+    return all(n%i for i in range(2,int(n**0.5)+1)) and n>1
+```
+
+**69. Reverse a list without using reverse().**
+
+```python
+lst[::-1]
+```
+
+**70. Find second largest element in a list.**
+
+```python
+sorted(set(lst))[-2]
+```
+
+---
+
+## **M. SQL + Python**
+
+**71. How to connect Python with SQL?**
+
+* Using `sqlite3` or `mysql-connector`.
+
+**72. Query execution in Python?**
+
+```python
+import sqlite3
+con = sqlite3.connect("db.db")
+cur = con.cursor()
+cur.execute("SELECT * FROM emp")
+```
+
+**73. How to fetch one record vs all?**
+
+* `fetchone()` vs `fetchall()`.
+
+**74. How to insert data safely in SQL?**
+
+* Use parameterized queries.
+
+**75. ORM in Python?**
+
+* Object Relational Mapper, e.g., SQLAlchemy, Django ORM.
+
+---
+
+## **N. Interview-Specific Concepts**
+
+**76. Difference between list comprehension and generator expression?**
+
+* List comprehension → creates list.
+* Generator expression → lazy eval.
+
+**77. Explain duck typing.**
+
+* Type determined by behavior, not class.
+
+**78. Difference between `@property` and normal method?**
+
+* Property allows access like attribute.
+
+**79. What is pickling in Python?**
+
+* Serialization using `pickle`.
+
+**80. Difference between `deepcopy`, `copy`, assignment?**
+
+* Assignment: Same reference.
+* Copy: New object, same inner.
+* Deepcopy: Full independent copy.
+
+---
+
+## **O. OS & System**
+
+**81. How to get current working directory?**
+
+```python
+import os
+os.getcwd()
+```
+
+**82. How to list files in a directory?**
+
+```python
+os.listdir(".")
+```
+
+**83. How to run shell commands from Python?**
+
+```python
+import subprocess
+subprocess.run(["ls","-l"])
+```
+
+**84. How to check Python version in code?**
+
+```python
+import sys
+print(sys.version)
+```
+
+**85. How to get system info?**
+
+```python
+import platform
+platform.system()
+```
+
+---
+
+## **P. Web + API**
+
+**86. What is Flask?**
+
+* Lightweight web framework.
+
+**87. What is Django?**
+
+* Full-stack web framework.
+
+**88. Difference between Flask and Django?**
+
+* Flask: Micro, flexible.
+* Django: Full, batteries included.
+
+**89. How to call API in Python?**
+
+```python
+import requests
+r = requests.get("https://api.github.com")
+```
+
+**90. What is FastAPI?**
+
+* Modern async web framework.
+
+---
+
+## **Q. Miscellaneous**
+
+**91. What is `__main__` in Python?**
+
+* Special block to check if script is run directly.
+
+**92. Explain Python’s `id()` function.**
+
+* Returns object’s memory address.
+
+**93. What are weak references?**
+
+* References that don’t increase ref count (`weakref` module).
+
+**94. Explain hashable objects.**
+
+* Objects usable as dict/set keys (immutable, `__hash__`).
+
+**95. Difference between mutable and immutable types?**
+
+* Mutable: list, dict, set.
+* Immutable: str, tuple, int.
+
+**96. What is `frozenset`?**
+
+* Immutable version of set.
+
+**97. Difference between `str()` and `repr()`?**
+
+* `str`: Readable.
+* `repr`: Debug/developer representation.
+
+**98. Explain `enumerate()`.**
+
+* Returns index and value in iteration.
+
+**99. Explain `zip()`.**
+
+* Combines iterables element-wise.
+
+**100. What is `dataclass` in Python?**
+
+* Introduced in Python 3.7, auto-generates `__init__`, `__repr__`, etc.
+
+```python
+from dataclasses import dataclass
+@dataclass
+class Point:
+    x:int
+    y:int
+```
+
+---
+
+✅ That’s the **Top 100 Python Interview Q&A** — from basics to advanced.
+
+👉 Do you want me to now create a **PDF version** of this list so you can keep it as a quick revision guide before interviews?
